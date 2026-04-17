@@ -94,21 +94,65 @@ int object_exists(const ObjectID *id) {
 
 //
 // Returns 0 on success, -1 on error.
-int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
-    // TODO: Implement
-    char header[64];
-    snprintf(header, sizeof(header), "%s %zu", "blob", len);
-    int header_len = strlen(header) + 1;
+int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
+    char path[512];
+    object_path(id, path, sizeof(path));
 
-char *full = malloc(header_len + len);
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
 
-memcpy(full, header, header_len);
-memcpy(full + header_len, data, len);
-    (void)type; (void)data; (void)len; (void)id_out;
-    return -1;
-}
+    // get file size
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
 
-// Read an object from the store.
+    char *buffer = malloc(size);
+    if (!buffer) {
+        fclose(f);
+        return -1;
+    }
+
+    fread(buffer, 1, size, f);
+    fclose(f);
+
+    // verify hash
+    ObjectID computed;
+    compute_hash(buffer, size, &computed);
+    if (memcmp(computed.hash, id->hash, HASH_SIZE) != 0) {
+        free(buffer);
+        return -1;
+    }
+
+    // find header end
+    char *null_pos = memchr(buffer, '\0', size);
+    if (!null_pos) {
+        free(buffer);
+        return -1;
+    }
+
+    // parse header
+    char type_str[10];
+    size_t data_len;
+    sscanf(buffer, "%s %zu", type_str, &data_len);
+
+    if (strcmp(type_str, "blob") == 0) *type_out = OBJ_BLOB;
+    else if (strcmp(type_str, "tree") == 0) *type_out = OBJ_TREE;
+    else if (strcmp(type_str, "commit") == 0) *type_out = OBJ_COMMIT;
+    else {
+        free(buffer);
+        return -1;
+    }
+
+    // extract data
+    char *data_start = null_pos + 1;
+
+    *data_out = malloc(data_len);
+    memcpy(*data_out, data_start, data_len);
+    *len_out = data_len;
+
+    free(buffer);
+    return 0;
+}// Read an object from the store.
 //
 // Steps:
 //   1. Build the file path from the hash using object_path()
@@ -130,8 +174,3 @@ memcpy(full + header_len, data, len);
 //
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
-int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    // TODO: Implement
-    (void)id; (void)type_out; (void)data_out; (void)len_out;
-    return -1;
-}
