@@ -94,6 +94,69 @@ int object_exists(const ObjectID *id) {
 
 //
 // Returns 0 on success, -1 on error.
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out) {
+    char header[64];
+    snprintf(header, sizeof(header), "%s %zu", "blob", len);
+
+    int header_len = strlen(header) + 1;
+
+    char *full = malloc(header_len + len);
+    if (!full) return -1;
+
+    memcpy(full, header, header_len);
+    memcpy(full + header_len, data, len);
+
+    compute_hash(full, header_len + len, id_out);
+
+    // Ensure directories exist
+    mkdir(".pes", 0755);
+    mkdir(".pes/objects", 0755);
+
+    if (object_exists(id_out)) {
+        free(full);
+        return 0;
+    }
+
+    char path[512];
+    object_path(id_out, path, sizeof(path));
+
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s", path);
+    char *slash = strrchr(dir, '/');
+    if (!slash) {
+        free(full);
+        return -1;
+    }
+    *slash = '\0';
+    mkdir(dir, 0755);
+
+    char temp_path[512];
+    snprintf(temp_path, sizeof(temp_path), "%s.tmp", path);
+
+    int fd = open(temp_path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (fd < 0) {
+        free(full);
+        return -1;
+    }
+
+    if (write(fd, full, header_len + len) != (ssize_t)(header_len + len)) {
+        close(fd);
+        free(full);
+        return -1;
+    }
+
+    close(fd);
+
+    if (rename(temp_path, path) != 0) {
+        free(full);
+        return -1;
+    }
+
+    free(full);
+    return 0;
+}
+
+
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
     char path[512];
     object_path(id, path, sizeof(path));
