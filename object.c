@@ -1,3 +1,4 @@
+// Phase 1: starting object_write implementation
 // object.c — Content-addressable object store
 //
 // Every piece of data (file contents, directory listings, commits) is stored
