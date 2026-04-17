@@ -15,6 +15,8 @@
 // PROVIDED functions: index_find, index_remove, index_status
 // TODO functions:     index_load, index_save, index_add
 
+#include "pes.h"
+#include <sys/stat.h>
 #include "index.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -145,7 +147,7 @@ int index_load(Index *index) {
 
         char hash_hex[HASH_HEX_SIZE + 1];
 
-        if (fscanf(f, "%o %s %ld %zu %s\n",
+        if (fscanf(f, "%o %s %ld %u %s\n",
                    &e->mode,
                    hash_hex,
                    &e->mtime_sec,
@@ -180,7 +182,7 @@ int index_save(const Index *index) {
         char hash_hex[HASH_HEX_SIZE + 1];
         hash_to_hex(&index->entries[i].hash, hash_hex);
 
-        fprintf(f, "%o %s %ld %zu %s\n",
+        fprintf(f,"%o %s %ld %u %s\n",
                 index->entries[i].mode,
                 hash_hex,
                 index->entries[i].mtime_sec,
