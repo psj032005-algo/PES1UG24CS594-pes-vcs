@@ -98,6 +98,12 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     // TODO: Implement
     char header[64];
     snprintf(header, sizeof(header), "%s %zu", "blob", len);
+    int header_len = strlen(header) + 1;
+
+char *full = malloc(header_len + len);
+
+memcpy(full, header, header_len);
+memcpy(full + header_len, data, len);
     (void)type; (void)data; (void)len; (void)id_out;
     return -1;
 }
